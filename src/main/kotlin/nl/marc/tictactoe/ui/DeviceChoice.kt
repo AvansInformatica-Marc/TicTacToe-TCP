@@ -7,7 +7,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import nl.marc.tictactoe.IsRemoteDevice
+import nl.marc.tictactoe.domain.IsRemoteDevice
 
 @Composable
 fun DeviceChoice(setPlayer: (IsRemoteDevice) -> Unit) {
