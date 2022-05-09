@@ -20,7 +20,6 @@ sealed class AppState {
 }
 
 @Composable
-@Preview
 fun App(setOnCloseListener: (suspend () -> Unit) -> Unit) {
     MaterialTheme {
         var state by remember { mutableStateOf<AppState>(AppState.UNINITIALISED) }
@@ -46,4 +45,10 @@ fun App(setOnCloseListener: (suspend () -> Unit) -> Unit) {
             }
         }
     }
+}
+
+@Composable
+@Preview
+private fun AppPreview() {
+    App { }
 }

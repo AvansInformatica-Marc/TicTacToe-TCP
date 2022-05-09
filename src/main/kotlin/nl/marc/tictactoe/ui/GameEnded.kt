@@ -1,5 +1,6 @@
 package nl.marc.tictactoe.ui
 
+import androidx.compose.desktop.ui.tooling.preview.Preview
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.Button
 import androidx.compose.material.Text
@@ -33,4 +34,31 @@ fun GameEnded(player: TicTacToeGame.Player, winner: TicTacToeGame.Player?, onRem
             Text("Rematch!")
         }
     }
+}
+
+@Composable
+@Preview
+private fun GameEndedAndWon() {
+    GameEnded(
+        TicTacToeGame.Player1,
+        TicTacToeGame.Player1
+    ) { }
+}
+
+@Composable
+@Preview
+private fun GameEndedAndLost() {
+    GameEnded(
+        TicTacToeGame.Player1,
+        TicTacToeGame.Player2
+    ) { }
+}
+
+@Composable
+@Preview
+private fun GameEndedAndTied() {
+    GameEnded(
+        TicTacToeGame.Player1,
+        null
+    ) { }
 }

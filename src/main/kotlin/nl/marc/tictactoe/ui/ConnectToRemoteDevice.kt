@@ -1,5 +1,6 @@
 package nl.marc.tictactoe.ui
 
+import androidx.compose.desktop.ui.tooling.preview.Preview
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.Button
 import androidx.compose.material.Text
@@ -15,6 +16,17 @@ import nl.marc.tictactoe.utils.TcpSocket
 @Composable
 fun ConnectToRemoteDevice(onSocketAvailable: (TcpSocket) -> Unit) {
     val coroutineScope = rememberCoroutineScope()
+
+    RequestConnectionCode {
+        coroutineScope.launch {
+            val (ip, port) = ConnectionCodes.getIpAndPort(it)
+            onSocketAvailable(TcpSocket.connectToRemoteSocket(ip, port))
+        }
+    }
+}
+
+@Composable
+private fun RequestConnectionCode(onConnectionCodeAvailable: (String) -> Unit) {
     var connectionCode by remember { mutableStateOf("") }
 
     Column(
@@ -36,13 +48,16 @@ fun ConnectToRemoteDevice(onSocketAvailable: (TcpSocket) -> Unit) {
 
         Button(
             onClick = {
-                coroutineScope.launch {
-                    val (ip, port) = ConnectionCodes.getIpAndPort(connectionCode)
-                    onSocketAvailable(TcpSocket.connectToRemoteSocket(ip, port))
-                }
+                onConnectionCodeAvailable(connectionCode)
             }
         ) {
             Text("Connect")
         }
     }
+}
+
+@Composable
+@Preview
+private fun RequestConnectionCodePreview() {
+    RequestConnectionCode {  }
 }
