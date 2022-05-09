@@ -1,6 +1,7 @@
 package nl.marc.tictactoe.ui
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -21,8 +22,8 @@ fun AcceptConnection(onSocketAvailable: (TcpSocket) -> Unit) {
         modifier = Modifier
             .fillMaxSize()
     ) {
-        Text("Connection code: ")
-        Text(connectionCode ?: "loading...")
+        Text(style = MaterialTheme.typography.body1, text = "Connection code: ")
+        Text(style = MaterialTheme.typography.body1, text = connectionCode ?: "loading...")
     }
 
     if (connectionCode == null) {

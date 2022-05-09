@@ -3,6 +3,7 @@ package nl.marc.tictactoe.ui
 import androidx.compose.desktop.ui.tooling.preview.Preview
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.Button
+import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -18,7 +19,7 @@ fun GameEnded(player: TicTacToeGame.Player, winner: TicTacToeGame.Player?, onRem
         modifier = Modifier
             .fillMaxSize()
     ) {
-        Text(when (winner) {
+        Text(style = MaterialTheme.typography.body1, text = when (winner) {
             null -> "It's tied"
             player -> "You won!"
             else -> "You lost..."

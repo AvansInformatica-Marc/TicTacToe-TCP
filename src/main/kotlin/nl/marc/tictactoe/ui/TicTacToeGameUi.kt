@@ -2,6 +2,7 @@ package nl.marc.tictactoe.ui
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.Button
+import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -24,7 +25,7 @@ fun Game(hasInitialTurn: Boolean, player: TicTacToeGame.Player, connection: TcpS
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier.fillMaxSize()
     ) {
-        Text(if(hasTurn) "It's your turn" else "Waiting for other player...")
+        Text(style = MaterialTheme.typography.h5, text = if(hasTurn) "It's your turn" else "Waiting for other player...")
 
         Spacer(modifier = Modifier.height(16.dp))
 
@@ -178,7 +179,7 @@ fun TicTacToeCell(
             }
         } else {
             Box(modifier, contentAlignment = Alignment.Center) {
-                Text(claimedBy.mark, textAlign = TextAlign.Center)
+                Text(style = MaterialTheme.typography.h6, text = claimedBy.mark, textAlign = TextAlign.Center)
             }
         }
     }
