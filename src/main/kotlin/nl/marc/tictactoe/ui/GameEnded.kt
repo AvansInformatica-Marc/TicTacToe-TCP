@@ -19,7 +19,7 @@ fun GameEnded(player: TicTacToeGame.Player, winner: TicTacToeGame.Player?, onRem
         modifier = Modifier
             .fillMaxSize()
     ) {
-        Text(style = MaterialTheme.typography.body1, text = when (winner) {
+        Text(style = MaterialTheme.typography.h5, text = when (winner) {
             null -> "It's tied"
             player -> "You won!"
             else -> "You lost..."
