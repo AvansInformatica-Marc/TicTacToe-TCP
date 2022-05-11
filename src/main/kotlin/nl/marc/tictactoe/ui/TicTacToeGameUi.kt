@@ -10,27 +10,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.min
-import io.ktor.utils.io.*
 import kotlinx.coroutines.launch
-import kotlinx.serialization.decodeFromHexString
-import kotlinx.serialization.encodeToHexString
-import kotlinx.serialization.protobuf.ProtoBuf
+import nl.marc.tictactoe.data.TicTacToeCommandSocket
 import nl.marc.tictactoe.domain.RemoteCommand
 import nl.marc.tictactoe.domain.TicTacToeGame
-
-suspend fun sendCommand(writeChannel: ByteWriteChannel, command: RemoteCommand) {
-    writeChannel.writeStringUtf8(
-        ProtoBuf.encodeToHexString(command) + "\r\n"
-    )
-}
-
-sealed interface GameResult {
-    data class GameEnded(val winner: TicTacToeGame.Player?) : GameResult
-    object GameQuit : GameResult
-}
+import nl.marc.tictactoe.ui.model.GameResult
 
 @Composable
-fun Game(hasInitialTurn: Boolean, game: TicTacToeGame, readChannel: ByteReadChannel, writeChannel: ByteWriteChannel, onGameEnded: (GameResult) -> Unit) {
+fun Game(hasInitialTurn: Boolean, game: TicTacToeGame, commandSocket: TicTacToeCommandSocket, onGameEnded: (GameResult) -> Unit) {
     val coroutineScope = rememberCoroutineScope()
     var hasTurn by remember { mutableStateOf(hasInitialTurn) }
 
@@ -38,19 +25,14 @@ fun Game(hasInitialTurn: Boolean, game: TicTacToeGame, readChannel: ByteReadChan
         hasTurn = false
         game.markCell(it, true)
         coroutineScope.launch {
-            sendCommand(writeChannel, RemoteCommand.MarkCellCommand(it))
+            commandSocket.sendCommand(RemoteCommand.MarkCellCommand(it))
         }
     }
 
     if (!hasTurn) {
         coroutineScope.launch {
-            val line = readChannel.readUTF8Line()
-            val command = line?.let {
-                runCatching {
-                    ProtoBuf.decodeFromHexString<RemoteCommand>(it)
-                }.getOrNull()
-            }
-            if (line == null || command is RemoteCommand.QuitGameCommand) {
+            val command = commandSocket.readCommand()
+            if (command is RemoteCommand.QuitGameCommand) {
                 onGameEnded(GameResult.GameQuit)
             } else if (command is RemoteCommand.MarkCellCommand) {
                 game.markCell(command.cell, false)

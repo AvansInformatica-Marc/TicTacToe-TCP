@@ -9,39 +9,29 @@ import androidx.compose.material.lightColors
 import androidx.compose.runtime.*
 import io.ktor.network.selector.*
 import io.ktor.network.sockets.*
-import io.ktor.utils.io.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.ExperimentalSerializationApi
+import nl.marc.tictactoe.data.TicTacToeCommandSocket
 import nl.marc.tictactoe.domain.TicTacToeGame
 import nl.marc.tictactoe.ui.*
+import nl.marc.tictactoe.ui.model.ConnectedSockets
+import nl.marc.tictactoe.ui.model.GameResult
+import nl.marc.tictactoe.ui.model.GameState
+import nl.marc.tictactoe.ui.model.OnApplicationClosed
 
-sealed class ConnectionState {
-    object UNINITIALISED : ConnectionState()
-
-    object DeviceIsPrimary : ConnectionState()
-
-    object DeviceIsSecondary : ConnectionState()
-
-    data class Connected(
-        val socket: Socket,
-        val serverSocket: ServerSocket? = null
-    ) : ConnectionState()
-}
-
+@ExperimentalSerializationApi
 @Composable
-fun App(setOnCloseListener: (suspend () -> Unit) -> Unit) {
+fun App(setOnCloseListener: (OnApplicationClosed) -> Unit) {
     val coroutineScope = rememberCoroutineScope()
-    var state by remember { mutableStateOf<ConnectionState>(ConnectionState.UNINITIALISED) }
+    var connection by remember { mutableStateOf<ConnectedSockets?>(null) }
     val selectorManager = remember { ActorSelectorManager(Dispatchers.IO) }
     val socketBuilder = remember { aSocket(selectorManager).tcp() }
 
     setOnCloseListener {
         withContext(Dispatchers.IO) {
-            (state as? ConnectionState.Connected)?.apply {
-                socket.close()
-                serverSocket?.close()
-            }
+            connection?.close()
             selectorManager.close()
         }
     }
@@ -52,50 +42,52 @@ fun App(setOnCloseListener: (suspend () -> Unit) -> Unit) {
         Surface (
             color = MaterialTheme.colors.background
         ) {
-            when(val currentState = state) {
-                is ConnectionState.UNINITIALISED -> DeviceChoice {
-                    state = if (it.isRemoteDevice) ConnectionState.DeviceIsSecondary else ConnectionState.DeviceIsPrimary
+            when(val currentConnection = connection) {
+                null -> DeviceConnection(socketBuilder) {
+                    connection = it
                 }
-                is ConnectionState.DeviceIsPrimary -> AcceptConnection(socketBuilder) { serverSocket, socket ->
-                    state = ConnectionState.Connected(socket, serverSocket)
-                }
-                is ConnectionState.DeviceIsSecondary -> ConnectToRemoteDevice(socketBuilder) { socket ->
-                    state = ConnectionState.Connected(socket)
-                }
-                is ConnectionState.Connected -> AppConnected(
-                    if (currentState.serverSocket == null) TicTacToeGame.Player2 else TicTacToeGame.Player1,
-                    currentState.socket.openReadChannel(),
-                    currentState.socket.openWriteChannel(autoFlush = true)
+                else -> AppConnected(
+                    if (currentConnection.serverSocket == null) TicTacToeGame.Player2 else TicTacToeGame.Player1,
+                    TicTacToeCommandSocket.create(currentConnection.socket)
                 ) {
                     coroutineScope.launch(Dispatchers.IO) {
-                        currentState.serverSocket?.close()
-                        currentState.socket.close()
+                        currentConnection.close()
                     }
-                    state = ConnectionState.UNINITIALISED
+                    connection = null
                 }
             }
         }
     }
 }
 
-sealed interface GameState {
-    object Running : GameState
+@Composable
+fun DeviceConnection(socketBuilder: TcpSocketBuilder, onConnected: (ConnectedSockets) -> Unit) {
+    var isCurrentDevicePrimary by remember { mutableStateOf<Boolean?>(null) }
 
-    data class Completed(val winner: TicTacToeGame.Player?) : GameState
+    when (isCurrentDevicePrimary) {
+        null -> DeviceChoice {
+            isCurrentDevicePrimary = !it.isRemoteDevice
+        }
+        true -> AcceptConnection(socketBuilder) { serverSocket, socket ->
+            onConnected(ConnectedSockets(socket, serverSocket))
+        }
+        false -> ConnectToRemoteDevice(socketBuilder) { socket ->
+            onConnected(ConnectedSockets(socket))
+        }
+    }
 }
 
 @Composable
 fun AppConnected(
     player: TicTacToeGame.Player,
-    readChannel: ByteReadChannel,
-    writeChannel: ByteWriteChannel,
+    commandSocket: TicTacToeCommandSocket,
     onExit: () -> Unit
 ) {
     var hasInitialTurn by remember { mutableStateOf(player == TicTacToeGame.Player1) }
     var gameState by remember { mutableStateOf<GameState>(GameState.Running) }
 
     when(val state = gameState) {
-        is GameState.Running -> Game(hasInitialTurn, TicTacToeGame(player), readChannel, writeChannel) {
+        is GameState.Running -> Game(hasInitialTurn, TicTacToeGame(player), commandSocket) {
             if (it is GameResult.GameEnded) {
                 gameState = GameState.Completed(it.winner)
             } else {
