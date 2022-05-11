@@ -1,15 +1,27 @@
 package nl.marc.tictactoe.domain
 
-import nl.marc.tictactoe.utils.TcpSocket
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.math.BigInteger
+import java.net.DatagramSocket
+import java.net.InetAddress
 
 object ConnectionCodes {
     private const val CONNECTION_CODE_RADIX = 36
 
     suspend fun getConnectionCode(port: Int): String {
-        val address = BigInteger(1, TcpSocket.getIpAddressOfCurrentDevice().address)
+        val address = BigInteger(1, getIpAddressOfCurrentDevice().address)
 
         return "${address.toString(CONNECTION_CODE_RADIX)}-${port.toString(CONNECTION_CODE_RADIX)}"
+    }
+
+    private suspend fun getIpAddressOfCurrentDevice(): InetAddress {
+        return withContext(Dispatchers.IO) {
+            DatagramSocket().use {
+                it.connect(InetAddress.getByName("8.8.8.8"), 10002)
+                it.localAddress
+            }
+        }
     }
 
     fun getIpAndPort(connectionCode: String): Pair<String, Int> {

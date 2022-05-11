@@ -9,18 +9,18 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import io.ktor.network.sockets.*
 import kotlinx.coroutines.launch
 import nl.marc.tictactoe.domain.ConnectionCodes
-import nl.marc.tictactoe.utils.TcpSocket
 
 @Composable
-fun ConnectToRemoteDevice(onSocketAvailable: (TcpSocket) -> Unit) {
+fun ConnectToRemoteDevice(socketBuilder: TcpSocketBuilder, onSocketAvailable: (Socket) -> Unit) {
     val coroutineScope = rememberCoroutineScope()
 
     RequestConnectionCode {
         coroutineScope.launch {
-            val (ip, port) = ConnectionCodes.getIpAndPort(it)
-            onSocketAvailable(TcpSocket.connectToRemoteSocket(ip, port))
+            val (host, port) = ConnectionCodes.getIpAndPort(it)
+            onSocketAvailable(socketBuilder.connect(host, port))
         }
     }
 }

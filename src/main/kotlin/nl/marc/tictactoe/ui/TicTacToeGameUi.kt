@@ -10,13 +10,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.min
+import io.ktor.utils.io.*
 import kotlinx.coroutines.launch
 import nl.marc.tictactoe.domain.TicTacToeGame
-import nl.marc.tictactoe.utils.TcpSocket
 
 @Composable
-fun Game(hasInitialTurn: Boolean, player: TicTacToeGame.Player, connection: TcpSocket, onGameEnded: (TicTacToeGame.Player?) -> Unit) {
+fun Game(hasInitialTurn: Boolean, player: TicTacToeGame.Player, readChannel: ByteReadChannel, writeChannel: ByteWriteChannel, onGameEnded: (TicTacToeGame.Player?) -> Unit) {
     val coroutineScope = rememberCoroutineScope()
+
     val game = remember { TicTacToeGame(player) }
     var hasTurn by remember { mutableStateOf(hasInitialTurn) }
 
@@ -38,7 +39,7 @@ fun Game(hasInitialTurn: Boolean, player: TicTacToeGame.Player, connection: TcpS
                 game.markCell(it, true)
                 hasTurn = false
                 coroutineScope.launch {
-                    connection.writeLine(it.name)
+                    writeChannel.writeStringUtf8(it.name + "\r\n")
                 }
             }
 
@@ -48,7 +49,7 @@ fun Game(hasInitialTurn: Boolean, player: TicTacToeGame.Player, connection: TcpS
                 game.markCell(it, true)
                 hasTurn = false
                 coroutineScope.launch {
-                    connection.writeLine(it.name)
+                    writeChannel.writeStringUtf8(it.name + "\r\n")
                 }
             }
 
@@ -58,7 +59,7 @@ fun Game(hasInitialTurn: Boolean, player: TicTacToeGame.Player, connection: TcpS
                 game.markCell(it, true)
                 hasTurn = false
                 coroutineScope.launch {
-                    connection.writeLine(it.name)
+                    writeChannel.writeStringUtf8(it.name + "\r\n")
                 }
             }
         }
@@ -74,7 +75,7 @@ fun Game(hasInitialTurn: Boolean, player: TicTacToeGame.Player, connection: TcpS
                 game.markCell(it, true)
                 hasTurn = false
                 coroutineScope.launch {
-                    connection.writeLine(it.name)
+                    writeChannel.writeStringUtf8(it.name + "\r\n")
                 }
             }
 
@@ -84,7 +85,7 @@ fun Game(hasInitialTurn: Boolean, player: TicTacToeGame.Player, connection: TcpS
                 game.markCell(it, true)
                 hasTurn = false
                 coroutineScope.launch {
-                    connection.writeLine(it.name)
+                    writeChannel.writeStringUtf8(it.name + "\r\n")
                 }
             }
 
@@ -94,7 +95,7 @@ fun Game(hasInitialTurn: Boolean, player: TicTacToeGame.Player, connection: TcpS
                 game.markCell(it, true)
                 hasTurn = false
                 coroutineScope.launch {
-                    connection.writeLine(it.name)
+                    writeChannel.writeStringUtf8(it.name + "\r\n")
                 }
             }
         }
@@ -110,7 +111,7 @@ fun Game(hasInitialTurn: Boolean, player: TicTacToeGame.Player, connection: TcpS
                 game.markCell(it, true)
                 hasTurn = false
                 coroutineScope.launch {
-                    connection.writeLine(it.name)
+                    writeChannel.writeStringUtf8(it.name + "\r\n")
                 }
             }
 
@@ -120,7 +121,7 @@ fun Game(hasInitialTurn: Boolean, player: TicTacToeGame.Player, connection: TcpS
                 game.markCell(it, true)
                 hasTurn = false
                 coroutineScope.launch {
-                    connection.writeLine(it.name)
+                    writeChannel.writeStringUtf8(it.name + "\r\n")
                 }
             }
 
@@ -130,7 +131,7 @@ fun Game(hasInitialTurn: Boolean, player: TicTacToeGame.Player, connection: TcpS
                 game.markCell(it, true)
                 hasTurn = false
                 coroutineScope.launch {
-                    connection.writeLine(it.name)
+                    writeChannel.writeStringUtf8(it.name + "\r\n")
                 }
             }
         }
@@ -138,7 +139,7 @@ fun Game(hasInitialTurn: Boolean, player: TicTacToeGame.Player, connection: TcpS
 
     if (!hasTurn) {
         coroutineScope.launch {
-            val line = connection.readLine()?.trim()?.uppercase()
+            val line = readChannel.readUTF8Line()?.trim()?.uppercase()
             if (line == null) {
                 onGameEnded(null)
             } else {

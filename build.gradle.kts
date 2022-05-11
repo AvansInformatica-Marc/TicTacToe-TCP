@@ -12,6 +12,7 @@ group = "nl.marc"
 version = "1.0"
 
 dependencies {
+    implementation("io.ktor:ktor-network:2.0.1")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.6.1")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-protobuf:1.3.2")
     implementation(compose.desktop.currentOs)
