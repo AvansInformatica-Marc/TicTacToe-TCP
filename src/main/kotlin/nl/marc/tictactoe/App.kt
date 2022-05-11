@@ -106,3 +106,12 @@ fun AppConnected(
 private fun AppPreview() {
     App { }
 }
+
+@Composable
+@Preview
+private fun AppConnectedPreview() {
+    AppConnected(
+        TicTacToeGame.Player1,
+        TicTacToeCommandSocket.createEmptyCommandSocketForTesting()
+    ) {}
+}
