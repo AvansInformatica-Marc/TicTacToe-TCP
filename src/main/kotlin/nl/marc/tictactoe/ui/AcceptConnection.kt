@@ -38,7 +38,7 @@ fun AcceptConnection(socketBuilder: TcpSocketBuilder, onSocketAvailable: (Server
 }
 
 suspend fun tryCreateSocket(socketBuilder: TcpSocketBuilder): Pair<String, ServerSocket> {
-    val port = 5010 + (0..80).random()
+    val port = (0..6).random() * 100 + 5000
     val connectionCode = ConnectionCodes.getConnectionCode(port)
 
     return try {
