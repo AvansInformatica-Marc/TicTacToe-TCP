@@ -12,15 +12,64 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.min
 import io.ktor.utils.io.*
 import kotlinx.coroutines.launch
+import kotlinx.serialization.decodeFromHexString
+import kotlinx.serialization.encodeToHexString
+import kotlinx.serialization.protobuf.ProtoBuf
+import nl.marc.tictactoe.domain.RemoteCommand
 import nl.marc.tictactoe.domain.TicTacToeGame
 
-@Composable
-fun Game(hasInitialTurn: Boolean, player: TicTacToeGame.Player, readChannel: ByteReadChannel, writeChannel: ByteWriteChannel, onGameEnded: (TicTacToeGame.Player?) -> Unit) {
-    val coroutineScope = rememberCoroutineScope()
+suspend fun sendCommand(writeChannel: ByteWriteChannel, command: RemoteCommand) {
+    writeChannel.writeStringUtf8(
+        ProtoBuf.encodeToHexString(command) + "\r\n"
+    )
+}
 
-    val game = remember { TicTacToeGame(player) }
+sealed interface GameResult {
+    data class GameEnded(val winner: TicTacToeGame.Player?) : GameResult
+    object GameQuit : GameResult
+}
+
+@Composable
+fun Game(hasInitialTurn: Boolean, game: TicTacToeGame, readChannel: ByteReadChannel, writeChannel: ByteWriteChannel, onGameEnded: (GameResult) -> Unit) {
+    val coroutineScope = rememberCoroutineScope()
     var hasTurn by remember { mutableStateOf(hasInitialTurn) }
 
+    TicTacToeGrid(hasTurn, game) {
+        hasTurn = false
+        game.markCell(it, true)
+        coroutineScope.launch {
+            sendCommand(writeChannel, RemoteCommand.MarkCellCommand(it))
+        }
+    }
+
+    if (!hasTurn) {
+        coroutineScope.launch {
+            val line = readChannel.readUTF8Line()
+            val command = line?.let {
+                runCatching {
+                    ProtoBuf.decodeFromHexString<RemoteCommand>(it)
+                }.getOrNull()
+            }
+            if (line == null || command is RemoteCommand.QuitGameCommand) {
+                onGameEnded(GameResult.GameQuit)
+            } else if (command is RemoteCommand.MarkCellCommand) {
+                game.markCell(command.cell, false)
+                hasTurn = true
+            }
+        }
+    }
+
+    if (!game.isGameRunning) {
+        onGameEnded(GameResult.GameEnded(game.winner))
+    }
+}
+
+@Composable
+fun TicTacToeGrid(
+    hasTurn: Boolean,
+    game: TicTacToeGame,
+    onCellClaimed: (TicTacToeGame.Cells) -> Unit
+) {
     Column(
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -35,33 +84,15 @@ fun Game(hasInitialTurn: Boolean, player: TicTacToeGame.Player, readChannel: Byt
             horizontalArrangement = Arrangement.Center,
             modifier = Modifier.fillMaxWidth()
         ) {
-            TicTacToeCell(hasTurn, game, TicTacToeGame.Cells.TL) {
-                game.markCell(it, true)
-                hasTurn = false
-                coroutineScope.launch {
-                    writeChannel.writeStringUtf8(it.name + "\r\n")
-                }
-            }
+            TicTacToeCell(hasTurn, game, TicTacToeGame.Cells.TL, onCellClaimed)
 
             Spacer(modifier = Modifier.width(16.dp))
 
-            TicTacToeCell(hasTurn, game, TicTacToeGame.Cells.TC) {
-                game.markCell(it, true)
-                hasTurn = false
-                coroutineScope.launch {
-                    writeChannel.writeStringUtf8(it.name + "\r\n")
-                }
-            }
+            TicTacToeCell(hasTurn, game, TicTacToeGame.Cells.TC, onCellClaimed)
 
             Spacer(modifier = Modifier.width(16.dp))
 
-            TicTacToeCell(hasTurn, game, TicTacToeGame.Cells.TR) {
-                game.markCell(it, true)
-                hasTurn = false
-                coroutineScope.launch {
-                    writeChannel.writeStringUtf8(it.name + "\r\n")
-                }
-            }
+            TicTacToeCell(hasTurn, game, TicTacToeGame.Cells.TR, onCellClaimed)
         }
 
         Spacer(modifier = Modifier.height(16.dp))
@@ -71,33 +102,15 @@ fun Game(hasInitialTurn: Boolean, player: TicTacToeGame.Player, readChannel: Byt
             horizontalArrangement = Arrangement.Center,
             modifier = Modifier.fillMaxWidth()
         ) {
-            TicTacToeCell(hasTurn, game, TicTacToeGame.Cells.ML) {
-                game.markCell(it, true)
-                hasTurn = false
-                coroutineScope.launch {
-                    writeChannel.writeStringUtf8(it.name + "\r\n")
-                }
-            }
+            TicTacToeCell(hasTurn, game, TicTacToeGame.Cells.ML, onCellClaimed)
 
             Spacer(modifier = Modifier.width(16.dp))
 
-            TicTacToeCell(hasTurn, game, TicTacToeGame.Cells.MC) {
-                game.markCell(it, true)
-                hasTurn = false
-                coroutineScope.launch {
-                    writeChannel.writeStringUtf8(it.name + "\r\n")
-                }
-            }
+            TicTacToeCell(hasTurn, game, TicTacToeGame.Cells.MC, onCellClaimed)
 
             Spacer(modifier = Modifier.width(16.dp))
 
-            TicTacToeCell(hasTurn, game, TicTacToeGame.Cells.MR) {
-                game.markCell(it, true)
-                hasTurn = false
-                coroutineScope.launch {
-                    writeChannel.writeStringUtf8(it.name + "\r\n")
-                }
-            }
+            TicTacToeCell(hasTurn, game, TicTacToeGame.Cells.MR, onCellClaimed)
         }
 
         Spacer(modifier = Modifier.height(16.dp))
@@ -107,50 +120,16 @@ fun Game(hasInitialTurn: Boolean, player: TicTacToeGame.Player, readChannel: Byt
             horizontalArrangement = Arrangement.Center,
             modifier = Modifier.fillMaxWidth()
         ) {
-            TicTacToeCell(hasTurn, game, TicTacToeGame.Cells.BL) {
-                game.markCell(it, true)
-                hasTurn = false
-                coroutineScope.launch {
-                    writeChannel.writeStringUtf8(it.name + "\r\n")
-                }
-            }
+            TicTacToeCell(hasTurn, game, TicTacToeGame.Cells.BL, onCellClaimed)
 
             Spacer(modifier = Modifier.width(16.dp))
 
-            TicTacToeCell(hasTurn, game, TicTacToeGame.Cells.BC) {
-                game.markCell(it, true)
-                hasTurn = false
-                coroutineScope.launch {
-                    writeChannel.writeStringUtf8(it.name + "\r\n")
-                }
-            }
+            TicTacToeCell(hasTurn, game, TicTacToeGame.Cells.BC, onCellClaimed)
 
             Spacer(modifier = Modifier.width(16.dp))
 
-            TicTacToeCell(hasTurn, game, TicTacToeGame.Cells.BR) {
-                game.markCell(it, true)
-                hasTurn = false
-                coroutineScope.launch {
-                    writeChannel.writeStringUtf8(it.name + "\r\n")
-                }
-            }
+            TicTacToeCell(hasTurn, game, TicTacToeGame.Cells.BR, onCellClaimed)
         }
-    }
-
-    if (!hasTurn) {
-        coroutineScope.launch {
-            val line = readChannel.readUTF8Line()?.trim()?.uppercase()
-            if (line == null) {
-                onGameEnded(null)
-            } else {
-                game.markCell(TicTacToeGame.Cells.valueOf(line), false)
-                hasTurn = true
-            }
-        }
-    }
-
-    if (!game.isGameRunning) {
-        onGameEnded(game.winner)
     }
 }
 

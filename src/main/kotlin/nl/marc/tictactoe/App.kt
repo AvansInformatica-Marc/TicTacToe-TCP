@@ -11,39 +11,40 @@ import io.ktor.network.selector.*
 import io.ktor.network.sockets.*
 import io.ktor.utils.io.*
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import nl.marc.tictactoe.domain.TicTacToeGame
 import nl.marc.tictactoe.ui.*
 
-sealed class AppState {
-    object UNINITIALISED : AppState()
+sealed class ConnectionState {
+    object UNINITIALISED : ConnectionState()
 
-    object DeviceIsPrimary : AppState()
+    object DeviceIsPrimary : ConnectionState()
 
-    object DeviceIsSecondary : AppState()
+    object DeviceIsSecondary : ConnectionState()
 
-    data class GameRunning(
-        val player: TicTacToeGame.Player,
-        val readChannel: ByteReadChannel,
-        val writeChannel: ByteWriteChannel,
-        val hasInitialTurn: Boolean
-    ) : AppState()
-
-    data class GameEnded(
-        val player: TicTacToeGame.Player,
-        val winner: TicTacToeGame.Player?,
-        val readChannel: ByteReadChannel,
-        val writeChannel: ByteWriteChannel,
-        val hasInitialTurn: Boolean
-    ) : AppState()
+    data class Connected(
+        val socket: Socket,
+        val serverSocket: ServerSocket? = null
+    ) : ConnectionState()
 }
 
 @Composable
 fun App(setOnCloseListener: (suspend () -> Unit) -> Unit) {
-    var state by remember { mutableStateOf<AppState>(AppState.UNINITIALISED) }
+    val coroutineScope = rememberCoroutineScope()
+    var state by remember { mutableStateOf<ConnectionState>(ConnectionState.UNINITIALISED) }
     val selectorManager = remember { ActorSelectorManager(Dispatchers.IO) }
     val socketBuilder = remember { aSocket(selectorManager).tcp() }
 
+    setOnCloseListener {
+        withContext(Dispatchers.IO) {
+            (state as? ConnectionState.Connected)?.apply {
+                socket.close()
+                serverSocket?.close()
+            }
+            selectorManager.close()
+        }
+    }
 
     MaterialTheme(
         colors = if (isSystemInDarkTheme()) darkColors() else lightColors()
@@ -52,39 +53,58 @@ fun App(setOnCloseListener: (suspend () -> Unit) -> Unit) {
             color = MaterialTheme.colors.background
         ) {
             when(val currentState = state) {
-                is AppState.UNINITIALISED -> DeviceChoice {
-                    state = if (it.isRemoteDevice) AppState.DeviceIsSecondary else AppState.DeviceIsPrimary
+                is ConnectionState.UNINITIALISED -> DeviceChoice {
+                    state = if (it.isRemoteDevice) ConnectionState.DeviceIsSecondary else ConnectionState.DeviceIsPrimary
                 }
-                is AppState.DeviceIsPrimary -> AcceptConnection(socketBuilder) { serverSocket, socket ->
-                    val readChannel = socket.openReadChannel()
-                    val writeChannel = socket.openWriteChannel(autoFlush = true)
-                    state = AppState.GameRunning(TicTacToeGame.Player1, readChannel, writeChannel, true)
-                    setOnCloseListener {
-                        withContext(Dispatchers.IO) {
-                            socket.close()
-                            serverSocket.close()
-                            selectorManager.close()
-                        }
+                is ConnectionState.DeviceIsPrimary -> AcceptConnection(socketBuilder) { serverSocket, socket ->
+                    state = ConnectionState.Connected(socket, serverSocket)
+                }
+                is ConnectionState.DeviceIsSecondary -> ConnectToRemoteDevice(socketBuilder) { socket ->
+                    state = ConnectionState.Connected(socket)
+                }
+                is ConnectionState.Connected -> AppConnected(
+                    if (currentState.serverSocket == null) TicTacToeGame.Player2 else TicTacToeGame.Player1,
+                    currentState.socket.openReadChannel(),
+                    currentState.socket.openWriteChannel(autoFlush = true)
+                ) {
+                    coroutineScope.launch(Dispatchers.IO) {
+                        currentState.serverSocket?.close()
+                        currentState.socket.close()
                     }
-                }
-                is AppState.DeviceIsSecondary -> ConnectToRemoteDevice(socketBuilder) { socket ->
-                    val readChannel = socket.openReadChannel()
-                    val writeChannel = socket.openWriteChannel(autoFlush = true)
-                    state = AppState.GameRunning(TicTacToeGame.Player2, readChannel, writeChannel, false)
-                    setOnCloseListener {
-                        withContext(Dispatchers.IO) {
-                            socket.close()
-                            selectorManager.close()
-                        }
-                    }
-                }
-                is AppState.GameRunning -> Game(currentState.hasInitialTurn, currentState.player, currentState.readChannel, currentState.writeChannel) {
-                    state = AppState.GameEnded(currentState.player, it, currentState.readChannel, currentState.writeChannel, currentState.hasInitialTurn)
-                }
-                is AppState.GameEnded -> GameEnded(currentState.player, currentState.winner) {
-                    state = AppState.GameRunning(currentState.player, currentState.readChannel, currentState.writeChannel, !currentState.hasInitialTurn)
+                    state = ConnectionState.UNINITIALISED
                 }
             }
+        }
+    }
+}
+
+sealed interface GameState {
+    object Running : GameState
+
+    data class Completed(val winner: TicTacToeGame.Player?) : GameState
+}
+
+@Composable
+fun AppConnected(
+    player: TicTacToeGame.Player,
+    readChannel: ByteReadChannel,
+    writeChannel: ByteWriteChannel,
+    onExit: () -> Unit
+) {
+    var hasInitialTurn by remember { mutableStateOf(player == TicTacToeGame.Player1) }
+    var gameState by remember { mutableStateOf<GameState>(GameState.Running) }
+
+    when(val state = gameState) {
+        is GameState.Running -> Game(hasInitialTurn, TicTacToeGame(player), readChannel, writeChannel) {
+            if (it is GameResult.GameEnded) {
+                gameState = GameState.Completed(it.winner)
+            } else {
+                onExit()
+            }
+        }
+        is GameState.Completed -> GameEnded(player, state.winner) {
+            hasInitialTurn = !hasInitialTurn
+            gameState = GameState.Running
         }
     }
 }
