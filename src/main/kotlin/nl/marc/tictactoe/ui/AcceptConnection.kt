@@ -11,6 +11,7 @@ import androidx.compose.ui.Modifier
 import io.ktor.network.sockets.*
 import kotlinx.coroutines.launch
 import nl.marc.tictactoe.domain.ConnectionCodes
+import java.net.BindException
 
 @Composable
 fun AcceptConnection(socketBuilder: TcpSocketBuilder, onSocketAvailable: (ServerSocket, Socket) -> Unit) {
@@ -28,12 +29,21 @@ fun AcceptConnection(socketBuilder: TcpSocketBuilder, onSocketAvailable: (Server
     }
 
     if (connectionCode == null) {
-        val port = 5010 + (0..80).random()
         coroutineScope.launch {
-            connectionCode = ConnectionCodes.getConnectionCode(port)
-
-            val serverSocket = socketBuilder.bind(port = port)
+            val (resolvedConnectionCode, serverSocket) = tryCreateSocket(socketBuilder)
+            connectionCode = resolvedConnectionCode
             onSocketAvailable(serverSocket, serverSocket.accept())
         }
+    }
+}
+
+suspend fun tryCreateSocket(socketBuilder: TcpSocketBuilder): Pair<String, ServerSocket> {
+    val port = 5010 + (0..80).random()
+    val connectionCode = ConnectionCodes.getConnectionCode(port)
+
+    return try {
+        connectionCode to socketBuilder.bind(port = port)
+    } catch (error: BindException) {
+        tryCreateSocket(socketBuilder)
     }
 }
