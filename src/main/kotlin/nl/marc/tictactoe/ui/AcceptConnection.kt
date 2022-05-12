@@ -3,6 +3,7 @@ package nl.marc.tictactoe.ui
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Text
 import androidx.compose.runtime.*
@@ -25,7 +26,9 @@ fun AcceptConnection(socketBuilder: TcpSocketBuilder, onSocketAvailable: (Server
             .fillMaxSize()
     ) {
         Text(style = MaterialTheme.typography.body1, text = "Connection code: ")
-        Text(style = MaterialTheme.typography.body1, text = connectionCode ?: "loading...")
+        SelectionContainer {
+            Text(style = MaterialTheme.typography.body1, text = connectionCode ?: "loading...")
+        }
     }
 
     if (connectionCode == null) {
